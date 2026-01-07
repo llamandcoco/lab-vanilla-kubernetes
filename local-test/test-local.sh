@@ -143,12 +143,12 @@ run_playbooks() {
     echo -e "${YELLOW}Waiting for all nodes to be ready...${NC}"
     echo "This may take 2-5 minutes while CNI initializes..."
     for i in {1..40}; do
-        if multipass exec k8s-control-plane-01 -- kubectl get nodes --no-headers 2>/dev/null | grep -q "NotReady"; then
+        if "${SCRIPT_DIR}/vm-exec.sh" k8s-control-plane-01 "kubectl get nodes --no-headers" 2>/dev/null | grep -q "NotReady"; then
             echo "  Attempt $i/40: Some nodes not ready yet..."
             sleep 10
         else
             echo -e "${GREEN}✓${NC} All nodes are ready!"
-            multipass exec k8s-control-plane-01 -- kubectl get nodes
+            "${SCRIPT_DIR}/vm-exec.sh" k8s-control-plane-01 "kubectl get nodes"
             break
         fi
     done
@@ -157,6 +157,116 @@ run_playbooks() {
     echo -e "${GREEN}✓${NC} Playbooks completed successfully"
     echo ""
 }
+
+# ============================================================================
+# Network Health and Recovery Functions
+# ============================================================================
+
+# Check network health proactively
+check_network_health() {
+    local quiet=${1:-false}
+
+    [ "$quiet" = "false" ] && echo -e "${YELLOW}Checking network health...${NC}"
+
+    local issues=0
+
+    # Check NAT rules (macOS only)
+    if [ "$(uname -s)" = "Darwin" ]; then
+        if ! sudo pfctl -s nat 2>/dev/null | grep -q "192.168.73.0/24"; then
+            [ "$quiet" = "false" ] && echo -e "${YELLOW}⚠${NC}  NAT rules missing"
+            issues=$((issues + 1))
+        fi
+    fi
+
+    # Check VM connectivity
+    if ! multipass exec k8s-control-plane-01 -- echo "test" >/dev/null 2>&1; then
+        [ "$quiet" = "false" ] && echo -e "${YELLOW}⚠${NC}  Control plane connectivity issue"
+        issues=$((issues + 1))
+    fi
+
+    if ! multipass exec k8s-worker-01 -- echo "test" >/dev/null 2>&1; then
+        [ "$quiet" = "false" ] && echo -e "${YELLOW}⚠${NC}  Worker node connectivity issue"
+        issues=$((issues + 1))
+    fi
+
+    if [ $issues -eq 0 ]; then
+        [ "$quiet" = "false" ] && echo -e "${GREEN}✓${NC} Network health: OK"
+        return 0
+    else
+        [ "$quiet" = "false" ] && echo -e "${YELLOW}⚠${NC}  Network health: $issues issue(s) detected"
+        return 1
+    fi
+}
+
+# Cleanup and verify network connections at end of script
+cleanup_and_verify() {
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  Final Network Verification${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    # Check network health
+    if check_network_health false; then
+        echo -e "${GREEN}✓${NC} Network connectivity verified"
+        return 0
+    fi
+
+    # Health check failed, attempt recovery
+    echo -e "${YELLOW}Network issues detected. Attempting automatic recovery...${NC}"
+
+    # Try quick fix first
+    echo -e "${YELLOW}Attempting quick recovery...${NC}"
+
+    # Restart VMs
+    multipass stop k8s-control-plane-01 k8s-worker-01 2>/dev/null || true
+    sleep 5
+    multipass start k8s-control-plane-01 k8s-worker-01 2>/dev/null || true
+    sleep 20
+
+    # Recheck
+    if check_network_health true; then
+        echo -e "${GREEN}✓${NC} Network recovered after VM restart"
+        return 0
+    fi
+
+    # Quick fix failed, try full network reset
+    echo -e "${YELLOW}Quick recovery failed. Running full network reset...${NC}"
+    if [ -f "${SCRIPT_DIR}/reset-vm-network.sh" ]; then
+        if "${SCRIPT_DIR}/reset-vm-network.sh"; then
+            echo -e "${GREEN}✓${NC} Network recovered after full reset"
+            return 0
+        fi
+    fi
+
+    # All recovery attempts failed
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}⚠  NETWORK CONNECTIVITY WARNING${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}Automatic recovery was not successful.${NC}"
+    echo ""
+    echo "The cluster may be running, but network access is unstable."
+    echo ""
+    echo "Manual recovery options:"
+    echo "  1. Run: ./test-local.sh fix-network"
+    echo "  2. Run: ./test-local.sh diagnose (for detailed info)"
+    echo "  3. Full reset: ./test-local.sh destroy && ./test-local.sh all"
+    echo ""
+
+    return 1
+}
+
+# Trap handler for cleanup on exit/error
+cleanup_on_exit() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo -e "${YELLOW}Script interrupted or failed. Cleaning up...${NC}"
+    fi
+}
+
+# Set trap for cleanup
+trap cleanup_on_exit EXIT INT TERM
 
 # Install addons (separate function)
 install_addons() {
@@ -185,11 +295,11 @@ verify_cluster() {
     echo ""
 
     echo -e "${YELLOW}Cluster Nodes:${NC}"
-    multipass exec k8s-control-plane-01 -- kubectl get nodes
+    "${SCRIPT_DIR}/vm-exec.sh" k8s-control-plane-01 "kubectl get nodes"
     echo ""
 
     echo -e "${YELLOW}All Pods:${NC}"
-    multipass exec k8s-control-plane-01 -- kubectl get pods -A
+    "${SCRIPT_DIR}/vm-exec.sh" k8s-control-plane-01 "kubectl get pods -A"
     echo ""
 
     echo -e "${GREEN}✓${NC} Cluster verification complete"
@@ -295,24 +405,117 @@ destroy_vms() {
     echo ""
 }
 
+# Fix network connectivity issues
+fix_network() {
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  Fixing Network Connectivity${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    # Run full network reset
+    if [ -f "${SCRIPT_DIR}/reset-vm-network.sh" ]; then
+        "${SCRIPT_DIR}/reset-vm-network.sh"
+    else
+        log_error "reset-vm-network.sh not found"
+        exit 1
+    fi
+
+    echo ""
+    echo "Testing connectivity..."
+    "${SCRIPT_DIR}/vm-exec.sh" k8s-control-plane-01 "kubectl get nodes"
+}
+
+# Diagnose network and VM state
+diagnose() {
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  System Diagnostics${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    echo -e "${YELLOW}=== Multipass VMs ===${NC}"
+    multipass list
+    echo ""
+
+    echo -e "${YELLOW}=== VM IP Addresses ===${NC}"
+    multipass info k8s-control-plane-01 --format json 2>/dev/null | jq -r '.info["k8s-control-plane-01"].ipv4[]' || echo "Cannot retrieve"
+    multipass info k8s-worker-01 --format json 2>/dev/null | jq -r '.info["k8s-worker-01"].ipv4[]' || echo "Cannot retrieve"
+    echo ""
+
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo -e "${YELLOW}=== NAT Rules (macOS) ===${NC}"
+        sudo pfctl -s nat 2>/dev/null | grep "192.168.73" || echo "No NAT rules found for 192.168.73.0/24"
+        echo ""
+
+        echo -e "${YELLOW}=== ARP Cache ===${NC}"
+        arp -an | grep "192.168.73" || echo "No ARP entries for 192.168.73.0/24"
+        echo ""
+
+        echo -e "${YELLOW}=== Bridge Interface ===${NC}"
+        ifconfig bridge100 2>/dev/null || echo "bridge100 not found"
+        echo ""
+    fi
+
+    echo -e "${YELLOW}=== SSH Control Sockets ===${NC}"
+    ls -la /tmp/ansible-ssh-* 2>/dev/null || echo "No Ansible SSH control sockets"
+    ls -la /tmp/ssh-* 2>/dev/null || echo "No SSH control sockets"
+    echo ""
+
+    echo -e "${YELLOW}=== Connectivity Tests ===${NC}"
+    echo -n "Control plane (multipass exec): "
+    if multipass exec k8s-control-plane-01 -- echo "OK" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+    fi
+
+    echo -n "Worker node (multipass exec): "
+    if multipass exec k8s-worker-01 -- echo "OK" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+    fi
+
+    local cp_ip
+    cp_ip=$(multipass info k8s-control-plane-01 --format json 2>/dev/null | jq -r '.info["k8s-control-plane-01"].ipv4[0]')
+    if [ -n "$cp_ip" ] && [ "$cp_ip" != "null" ]; then
+        echo -n "Control plane (SSH to $cp_ip): "
+        if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR ubuntu@"$cp_ip" "echo OK" 2>/dev/null; then
+            echo -e "${GREEN}✓${NC}"
+        else
+            echo -e "${RED}✗${NC}"
+        fi
+    fi
+    echo ""
+
+    echo -e "${YELLOW}=== Kubernetes Cluster Status ===${NC}"
+    if multipass exec k8s-control-plane-01 -- kubectl get nodes 2>/dev/null; then
+        echo ""
+        multipass exec k8s-control-plane-01 -- kubectl get pods -A 2>/dev/null || true
+    else
+        echo -e "${RED}Cannot access Kubernetes cluster${NC}"
+    fi
+}
+
 # Show help
 show_help() {
     cat <<EOF
 Usage: $0 {command}
 
 Commands:
-  create      Create VMs and generate inventory
-  test        Run Ansible playbooks (assumes VMs exist)
-  addons      Install cluster addons (metrics-server, ingress)
-  verify      Verify cluster is working
-  ssh         SSH to control plane
-  status      Show VM status
-  start       Start VMs
-  stop        Stop VMs
-  restart     Restart VMs
-  destroy     Destroy all VMs
-  all         Run all steps (create, test, verify)
-  full        Run all steps including addons
+  create       Create VMs and generate inventory
+  test         Run Ansible playbooks (assumes VMs exist)
+  addons       Install cluster addons (metrics-server, ingress)
+  verify       Verify cluster is working
+  fix-network  Fix VM network connectivity issues
+  diagnose     Show detailed diagnostic information
+  ssh          SSH to control plane
+  status       Show VM status
+  start        Start VMs
+  stop         Stop VMs
+  restart      Restart VMs
+  destroy      Destroy all VMs
+  all          Run all steps (create, test, verify)
+  full         Run all steps including addons
 
 Examples:
   $0 all          # Create VMs and deploy Kubernetes (no addons)
@@ -357,6 +560,12 @@ main() {
         verify)
             verify_cluster
             ;;
+        fix-network)
+            fix_network
+            ;;
+        diagnose)
+            diagnose
+            ;;
         ssh)
             ssh_control_plane
             ;;
@@ -395,6 +604,12 @@ main() {
             echo "  $0 verify       # Check cluster status"
             echo "  $0 destroy      # Clean up VMs"
             echo ""
+            echo -e "${YELLOW}Note: ARM Mac + Multipass can have network instability.${NC}"
+            echo -e "${YELLOW}If SSH timeouts occur:${NC}"
+            echo "  1. Wait 1-2 minutes for VMs to stabilize"
+            echo "  2. Use: ./vm-exec.sh k8s-control-plane-01 \"<command>\""
+            echo "  3. Or recreate: ./test-local.sh destroy && ./test-local.sh all"
+            echo ""
             ;;
         full)
             check_prerequisites
@@ -415,6 +630,9 @@ main() {
             echo "  $0 ssh          # SSH to control plane"
             echo "  $0 verify       # Check cluster status"
             echo "  $0 destroy      # Clean up VMs"
+            echo ""
+            echo -e "${YELLOW}Note: ARM Mac + Multipass can have network instability.${NC}"
+            echo -e "${YELLOW}If SSH timeouts occur: wait or use ./vm-exec.sh wrapper${NC}"
             echo ""
             ;;
         help|--help|-h)

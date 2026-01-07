@@ -1,0 +1,54 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Use Ubuntu 22.04 ARM64 for Apple Silicon
+  config.vm.box = "bento/ubuntu-22.04-arm64"
+
+  # Disable automatic box update checking
+  config.vm.box_check_update = false
+
+  # VMware provider settings
+  config.vm.provider "vmware_desktop" do |v|
+    v.gui = false
+    v.linked_clone = true
+  end
+
+  # Control Plane Node
+  config.vm.define "k8s-control-plane-01" do |cp|
+    cp.vm.hostname = "k8s-control-plane-01"
+    cp.vm.network "private_network", type: "dhcp"
+
+    cp.vm.provider "vmware_desktop" do |v|
+      v.vmx["memsize"] = "4096"
+      v.vmx["numvcpus"] = "2"
+      v.vmx["displayname"] = "k8s-control-plane-01"
+    end
+
+    # Provision SSH key for Ansible
+    cp.vm.provision "shell", inline: <<-SHELL
+      # Ensure SSH is properly configured
+      sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+      systemctl restart sshd
+    SHELL
+  end
+
+  # Worker Node
+  config.vm.define "k8s-worker-01" do |worker|
+    worker.vm.hostname = "k8s-worker-01"
+    worker.vm.network "private_network", type: "dhcp"
+
+    worker.vm.provider "vmware_desktop" do |v|
+      v.vmx["memsize"] = "4096"
+      v.vmx["numvcpus"] = "2"
+      v.vmx["displayname"] = "k8s-worker-01"
+    end
+
+    # Provision SSH key for Ansible
+    worker.vm.provision "shell", inline: <<-SHELL
+      # Ensure SSH is properly configured
+      sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+      systemctl restart sshd
+    SHELL
+  end
+end

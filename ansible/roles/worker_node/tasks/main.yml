@@ -1,0 +1,37 @@
+---
+# Join worker node to Kubernetes cluster
+
+- name: Check if node is already joined to cluster
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf
+
+- name: Copy join command from control machine
+  copy:
+    src: /tmp/kubeadm_join_command.sh
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0755'
+  when: not kubelet_conf.stat.exists
+
+- name: Join node to Kubernetes cluster
+  command: /tmp/kubeadm_join_command.sh
+  when: not kubelet_conf.stat.exists
+  register: join_result
+  failed_when: join_result.rc != 0
+
+- name: Wait for kubelet to be ready
+  wait_for:
+    path: /var/lib/kubelet/config.yaml
+    timeout: 60
+  when: not kubelet_conf.stat.exists
+
+- name: Display join result
+  debug:
+    var: join_result.stdout_lines
+  when: not kubelet_conf.stat.exists and join_result is defined
+
+- name: Verify kubelet is running
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes

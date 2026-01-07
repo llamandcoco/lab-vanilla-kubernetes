@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.multipass.nat</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>
+        sleep 10 &amp;&amp;
+        sysctl -w net.inet.ip.forwarding=1 &amp;&amp;
+        PRIMARY_IF=$(route -n get default | grep interface | awk '{print $2}') &amp;&amp;
+        echo "nat on $PRIMARY_IF from 192.168.73.0/24 to any -> ($PRIMARY_IF)" | pfctl -f - -e 2>/dev/null || pfctl -f - 2>/dev/null
+        </string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/tmp/multipass-nat.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/multipass-nat-error.log</string>
+</dict>
+</plist>

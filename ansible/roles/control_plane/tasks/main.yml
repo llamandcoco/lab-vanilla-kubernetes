@@ -1,0 +1,126 @@
+---
+# Initialize Kubernetes control plane
+
+- name: Check if Kubernetes cluster is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeconfig
+
+- name: Get current IP address
+  shell: ip -4 addr show enp0s1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
+  register: current_ip
+  changed_when: false
+
+- name: Display IP address being used
+  debug:
+    msg: "Initializing cluster with IP: {{ current_ip.stdout }}"
+
+- name: Initialize Kubernetes cluster with kubeadm
+  command: >
+    kubeadm init
+    --pod-network-cidr={{ pod_network_cidr }}
+    --apiserver-advertise-address={{ current_ip.stdout }}
+    --control-plane-endpoint={{ current_ip.stdout }}
+    --upload-certs
+  when: not kubeconfig.stat.exists
+  register: kubeadm_init
+  failed_when: kubeadm_init.rc != 0
+
+- name: Create .kube directory for ubuntu user
+  file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Copy admin.conf to ubuntu user's kubeconfig
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: yes
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
+
+- name: Create .kube directory for root user
+  file:
+    path: /root/.kube
+    state: directory
+    mode: '0755'
+
+- name: Copy admin.conf to root user's kubeconfig
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: yes
+    mode: '0600'
+
+- name: Wait for API server to be ready
+  wait_for:
+    host: "{{ current_ip.stdout }}"
+    port: 6443
+    delay: 10
+    timeout: 300
+
+- name: Download Calico manifest
+  get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml"
+    dest: /tmp/calico.yaml
+    mode: '0644'
+  become_user: ubuntu
+
+- name: Apply Calico CNI
+  command: kubectl apply -f /tmp/calico.yaml
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  when: not kubeconfig.stat.exists
+
+- name: Wait for Calico pods to be ready
+  command: kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  retries: 3
+  delay: 10
+  register: calico_ready
+  until: calico_ready.rc == 0
+  ignore_errors: yes
+
+- name: Display Calico status
+  debug:
+    msg: "Calico ready check: {{ 'PASSED' if calico_ready.rc == 0 else 'FAILED - Continuing anyway' }}"
+
+- name: Generate join command for worker nodes
+  command: kubeadm token create --print-join-command
+  register: join_command_raw
+
+- name: Set join command as fact
+  set_fact:
+    join_command: "{{ join_command_raw.stdout }}"
+
+- name: Save join command to local file
+  copy:
+    content: |
+      #!/bin/bash
+      {{ join_command }}
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0755'
+
+- name: Fetch join command to control machine
+  fetch:
+    src: /tmp/kubeadm_join_command.sh
+    dest: /tmp/kubeadm_join_command.sh
+    flat: yes
+
+- name: Display cluster status
+  command: kubectl get nodes
+  become_user: ubuntu
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cluster_status
+
+- name: Show cluster status
+  debug:
+    var: cluster_status.stdout_lines

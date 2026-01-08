@@ -25,7 +25,7 @@ cat > "${INVENTORY_DIR}/hosts.yml" <<EOF
 all:
   vars:
     ansible_user: ubuntu
-    ansible_ssh_private_key_file: ~/.ssh/k8s-lab-key
+    ansible_ssh_private_key_file: ~/.ssh/k8s-lab-key.pem
     ansible_python_interpreter: /usr/bin/python3
 
 control_plane:

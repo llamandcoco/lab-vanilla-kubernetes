@@ -7,11 +7,13 @@
   environment:
     KUBECONFIG: /home/ubuntu/.kube/config
   tasks:
-    - name: Verify all nodes are ready
+    - name: Verify all nodes are ready (wait for joins/CNI)
       command: kubectl get nodes --no-headers
       register: nodes_check
       changed_when: false
-      failed_when: "'NotReady' in nodes_check.stdout"
+      retries: 30
+      delay: 10
+      until: "'NotReady' not in nodes_check.stdout"
 
     - name: Install metrics-server
       command: |
@@ -29,15 +31,19 @@
 
     - name: Wait for metrics-server to be ready
       shell: |
-        for i in {1..36}; do
+        i=1
+        while [ $i -le 36 ]; do
           if kubectl get pods -n kube-system -l k8s-app=metrics-server -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
             echo "Metrics server is ready"
             exit 0
           fi
           echo "Waiting for metrics-server... attempt $i/36"
           sleep 5
+          i=$((i + 1))
         done
         exit 1
+      args:
+        executable: /bin/bash
       register: metrics_ready
       retries: 1
       delay: 0
@@ -51,15 +57,19 @@
 
     - name: Wait for ingress-nginx to be ready
       shell: |
-        for i in {1..60}; do
+        i=1
+        while [ $i -le 60 ]; do
           if kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
             echo "Ingress controller is ready"
             exit 0
           fi
           echo "Waiting for ingress-nginx... attempt $i/60"
           sleep 5
+          i=$((i + 1))
         done
         exit 1
+      args:
+        executable: /bin/bash
       register: ingress_ready
       retries: 1
       delay: 0

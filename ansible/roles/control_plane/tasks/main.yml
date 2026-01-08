@@ -6,14 +6,19 @@
     path: /etc/kubernetes/admin.conf
   register: kubeconfig
 
-- name: Get current IP address
-  shell: ip -4 addr show enp0s1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'
+- name: Detect network interface
+  script: ../../common/files/detect-network-interface.sh {{ internal_ip | default('') }}
+  register: detected_interface
+  changed_when: false
+
+- name: Get IP address from detected interface
+  shell: "ip -4 addr show {{ detected_interface.stdout.strip() }} | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'"
   register: current_ip
   changed_when: false
 
-- name: Display IP address being used
+- name: Display interface and IP being used
   debug:
-    msg: "Initializing cluster with IP: {{ current_ip.stdout }}"
+    msg: "Using interface {{ detected_interface.stdout.strip() }} with IP: {{ current_ip.stdout }}"
 
 - name: Initialize Kubernetes cluster with kubeadm
   command: >

@@ -22,7 +22,7 @@ A hands-on implementation of Kubernetes cluster deployment on AWS, demonstrating
 - 🔄 **Sequential Deployment**: Dependency-aware infrastructure provisioning (SSH keys → Network → Security → EC2)
 - 🔑 **Automated Key Management**: TLS provider generates and manages SSH keys with proper permissions
 - 🏗️ **Modular Design**: Reusable Terraform modules from [infra-modules](https://github.com/llamandcoco/infra-modules)
-- 📦 **State Management**: Remote state in S3 with DynamoDB locking
+- 📦 **DRY Configuration**: Terragrunt eliminates code duplication across environments
 
 ### Cluster Configuration
 - ⚙️ **Kubeadm-based Setup**: Production-grade cluster initialization

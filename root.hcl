@@ -17,34 +17,8 @@ locals {
   org_prefix   = "laco"
 }
 
-# Remote state configuration
-remote_state {
-  backend = "s3"
-
-  generate = {
-    path      = "backend.tf"
-    if_exists = "overwrite_terragrunt"
-  }
-
-  config = {
-    bucket         = "${local.org_prefix}-terraform-state-${local.account_id}"
-    key            = "${path_relative_to_include()}/terraform.tfstate"
-    region         = local.default_region
-    encrypt        = true
-    dynamodb_table = "${local.org_prefix}-terraform-locks-${local.account_id}"
-    s3_bucket_tags = {
-      Name      = "kubernetes-lab-terraform-state"
-      ManagedBy = "terragrunt"
-      Purpose   = "terraform-state"
-    }
-
-    dynamodb_table_tags = {
-      Name      = "kubernetes-lab-terraform-locks"
-      ManagedBy = "terragrunt"
-      Purpose   = "terraform-locks"
-    }
-  }
-}
+# Local state configuration (simpler for single-user learning environment)
+# State files stored locally - ensure .terraform/ and *.tfstate are in .gitignore
 
 # Generate AWS provider configuration
 generate "provider" {

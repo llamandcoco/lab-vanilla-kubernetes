@@ -14,8 +14,17 @@ include "env" {
   expose = true
 }
 
+dependencies {
+  paths = ["../01-networking"]
+}
+
 dependency "networking" {
   config_path = "../01-networking"
+
+  mock_outputs = {
+    vpc_id = "vpc-12345678"
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
 
 # Using Terraform directly since we need to create multiple security groups
@@ -33,79 +42,7 @@ generate "security_groups" {
 resource "aws_security_group" "control_plane" {
   name        = "laco-k8s-control-plane-sg"
   description = "Security group for Kubernetes control plane nodes"
-  vpc_id      = "${dependency.networking.outputs.vpc_id}"
-
-  # SSH access
-  ingress {
-    description = "SSH access"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # TODO: Restrict to your IP
-  }
-
-  # Kubernetes API server
-  ingress {
-    description = "Kubernetes API server"
-    from_port   = 6443
-    to_port     = 6443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # etcd server client API
-  ingress {
-    description     = "etcd server client API"
-    from_port       = 2379
-    to_port         = 2380
-    protocol        = "tcp"
-    security_groups = [aws_security_group.worker.id]
-  }
-
-  # Kubelet API
-  ingress {
-    description     = "Kubelet API"
-    from_port       = 10250
-    to_port         = 10250
-    protocol        = "tcp"
-    security_groups = [aws_security_group.worker.id]
-  }
-
-  # kube-scheduler
-  ingress {
-    description = "kube-scheduler"
-    from_port   = 10259
-    to_port     = 10259
-    protocol    = "tcp"
-    self        = true
-  }
-
-  # kube-controller-manager
-  ingress {
-    description = "kube-controller-manager"
-    from_port   = 10257
-    to_port     = 10257
-    protocol    = "tcp"
-    self        = true
-  }
-
-  # Allow all traffic from control plane nodes
-  ingress {
-    description = "Internal control plane communication"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    self        = true
-  }
-
-  # Allow all traffic from worker nodes (for pod networking)
-  ingress {
-    description     = "Pod networking from workers"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.worker.id]
-  }
+  vpc_id      = var.vpc_id
 
   # Allow all outbound traffic
   egress {
@@ -126,56 +63,72 @@ resource "aws_security_group" "control_plane" {
   )
 }
 
+# Control Plane Ingress Rules
+resource "aws_security_group_rule" "control_plane_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "SSH access"
+  security_group_id = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "control_plane_api" {
+  type              = "ingress"
+  from_port         = 6443
+  to_port           = 6443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Kubernetes API server"
+  security_group_id = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "control_plane_etcd_from_worker" {
+  type                     = "ingress"
+  from_port                = 2379
+  to_port                  = 2380
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
+  description              = "etcd from workers"
+  security_group_id        = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "control_plane_kubelet_from_worker" {
+  type                     = "ingress"
+  from_port                = 10250
+  to_port                  = 10250
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
+  description              = "Kubelet from workers"
+  security_group_id        = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "control_plane_self" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  self              = true
+  description       = "Internal control plane communication"
+  security_group_id = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "control_plane_from_worker_all" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.worker.id
+  description              = "Pod networking from workers"
+  security_group_id        = aws_security_group.control_plane.id
+}
+
 # Worker Node Security Group
 resource "aws_security_group" "worker" {
   name        = "laco-k8s-worker-sg"
   description = "Security group for Kubernetes worker nodes"
-  vpc_id      = "${dependency.networking.outputs.vpc_id}"
-
-  # SSH access
-  ingress {
-    description = "SSH access"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # TODO: Restrict to your IP
-  }
-
-  # Kubelet API
-  ingress {
-    description     = "Kubelet API"
-    from_port       = 10250
-    to_port         = 10250
-    protocol        = "tcp"
-    security_groups = [aws_security_group.control_plane.id]
-  }
-
-  # NodePort Services
-  ingress {
-    description = "NodePort Services"
-    from_port   = 30000
-    to_port     = 32767
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Allow all traffic from worker nodes
-  ingress {
-    description = "Internal worker communication"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    self        = true
-  }
-
-  # Allow all traffic from control plane (for pod networking)
-  ingress {
-    description     = "Pod networking from control plane"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.control_plane.id]
-  }
+  vpc_id      = var.vpc_id
 
   # Allow all outbound traffic
   egress {
@@ -196,6 +149,57 @@ resource "aws_security_group" "worker" {
   )
 }
 
+# Worker Ingress Rules
+resource "aws_security_group_rule" "worker_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "SSH access"
+  security_group_id = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_kubelet_from_control_plane" {
+  type                     = "ingress"
+  from_port                = 10250
+  to_port                  = 10250
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.control_plane.id
+  description              = "Kubelet from control plane"
+  security_group_id        = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_nodeport" {
+  type              = "ingress"
+  from_port         = 30000
+  to_port           = 32767
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "NodePort Services"
+  security_group_id = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_self" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  self              = true
+  description       = "Internal worker communication"
+  security_group_id = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_from_control_plane_all" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.control_plane.id
+  description              = "Pod networking from control plane"
+  security_group_id        = aws_security_group.worker.id
+}
+
 # Outputs
 output "control_plane_sg_id" {
   description = "Security group ID for control plane nodes"
@@ -209,4 +213,17 @@ output "worker_sg_id" {
 EOF
 }
 
-inputs = {}
+generate "variables" {
+  path      = "variables.tf"
+  if_exists = "overwrite"
+  contents  = <<-EOF
+variable "vpc_id" {
+  description = "VPC ID from networking module"
+  type        = string
+}
+EOF
+}
+
+inputs = {
+  vpc_id = dependency.networking.outputs.vpc_id
+}

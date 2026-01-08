@@ -26,4 +26,5 @@ locals {
   networking_stack_ref = "main"
   ec2_ref              = "main"
   security_group_ref   = "main"
+  key_pair_ref         = "main"
 }

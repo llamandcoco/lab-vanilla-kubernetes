@@ -19,18 +19,32 @@ terraform {
   source = "github.com/llamandcoco/infra-modules//terraform/ec2?ref=${include.env.locals.ec2_ref}"
 }
 
+dependencies {
+  paths = ["../01-networking", "../02-security-groups"]
+}
+
 dependency "networking" {
   config_path = "../01-networking"
+
+  mock_outputs = {
+    public_subnet_ids = ["subnet-12345678"]
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
 
 dependency "security_groups" {
   config_path = "../02-security-groups"
+
+  mock_outputs = {
+    worker_sg_id = "sg-12345678"
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
 
 inputs = {
   # Instance configuration
   instance_name = "k8s-worker-01"
-  ami_id        = "ami-0c0b74d29acd0cd97" # Ubuntu 22.04 LTS - UPDATE THIS!
+  ami_id        = "ami-02502825b39f7c669" # Ubuntu Server Pro 22.04 LTS (ca-central-1)
   instance_type = "t3.medium"             # 2 vCPU, 4GB RAM
 
   # Network configuration

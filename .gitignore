@@ -35,3 +35,18 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Terragrunt cache
+**/.terragrunt-cache/
+**/.terraform.lock.hcl
+
+# SSH Keys (local only)
+**/.ssh-keys/
+*.pem
+*.key
+
+# Ansible
+ansible/roles/common/files/*.deb
+
+# Test environments
+local-test/.ssh-keys/

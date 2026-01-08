@@ -24,7 +24,7 @@ inputs = {
   # Basic VPC settings
   name       = "laco-k8s"
   cidr_block = "10.100.0.0/16"
-  azs        = ["ca-central-1a"] # Single AZ for simplicity
+  azs        = ["ca-central-1a", "ca-central-1b"] # Two AZs for HA requirement
 
   # IPv6 and DNS
   enable_ipv6          = false

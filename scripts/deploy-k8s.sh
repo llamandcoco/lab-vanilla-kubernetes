@@ -8,6 +8,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ANSIBLE_DIR="${PROJECT_ROOT}/ansible"
+ANSIBLE_CONFIG="${ANSIBLE_DIR}/ansible.cfg"
+INVENTORY_FILE="${ANSIBLE_DIR}/inventory/hosts.yml"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -29,11 +31,15 @@ if ! command -v ansible-playbook &> /dev/null; then
     exit 1
 fi
 
-if [ ! -f ~/.ssh/k8s-lab-key ]; then
-    echo "Error: SSH key not found at ~/.ssh/k8s-lab-key"
+if [ ! -f ~/.ssh/k8s-lab-key.pem ]; then
+    echo "Error: SSH key not found at ~/.ssh/k8s-lab-key.pem"
     echo "Create it first with the instructions in docs/deployment.md"
     exit 1
 fi
+
+# Force Ansible to use the project-local config/inventory to avoid accidentally
+# picking up local-test or global defaults.
+export ANSIBLE_CONFIG
 
 echo -e "${GREEN}✓${NC} Prerequisites check passed"
 echo ""
@@ -47,7 +53,7 @@ echo -e "${YELLOW}Generating Ansible inventory...${NC}"
 
 echo ""
 echo -e "${YELLOW}Testing connectivity...${NC}"
-ansible all -m ping
+ansible -i "${INVENTORY_FILE}" all -m ping
 
 echo ""
 echo -e "${GREEN}✓${NC} Connectivity test passed"
@@ -57,31 +63,31 @@ echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Step 1: Pre-flight checks${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-ansible-playbook playbooks/00-prerequisites.yml
+ansible-playbook -i "${INVENTORY_FILE}" playbooks/00-prerequisites.yml
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Step 2: Common setup (all nodes)${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-ansible-playbook playbooks/01-common.yml
+ansible-playbook -i "${INVENTORY_FILE}" playbooks/01-common.yml
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Step 3: Initialize control plane${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-ansible-playbook playbooks/02-control-plane.yml
+ansible-playbook -i "${INVENTORY_FILE}" playbooks/02-control-plane.yml
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Step 4: Join worker nodes${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-ansible-playbook playbooks/03-worker-nodes.yml
+ansible-playbook -i "${INVENTORY_FILE}" playbooks/03-worker-nodes.yml
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Step 5: Install cluster addons${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-ansible-playbook playbooks/99-cluster-addons.yml
+ansible-playbook -i "${INVENTORY_FILE}" playbooks/99-cluster-addons.yml
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

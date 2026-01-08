@@ -46,23 +46,51 @@ echo ""
 # Navigate to Terragrunt directory
 cd "${TERRAGRUNT_DIR}"
 
-# Initialize and deploy
-echo -e "${YELLOW}Initializing Terragrunt...${NC}"
-terragrunt run-all init
+# Define deployment order based on dependencies
+MODULES=(
+    "00-ssh-key"
+    "01-networking"
+    "02-security-groups"
+    "03-control-plane"
+    "04-worker-nodes"
+)
+
+# Initialize all modules first
+echo -e "${YELLOW}Initializing all modules...${NC}"
+for module in "${MODULES[@]}"; do
+    echo -e "${BLUE}→ Initializing ${module}${NC}"
+    cd "${TERRAGRUNT_DIR}/${module}"
+    terragrunt init
+done
 
 echo ""
-echo -e "${YELLOW}Planning infrastructure changes...${NC}"
-terragrunt run-all plan
-
-echo ""
-echo -e "${YELLOW}Applying infrastructure changes...${NC}"
-read -p "Do you want to apply these changes? (yes/no): " confirm
+echo -e "${YELLOW}Deploying infrastructure sequentially...${NC}"
+echo -e "${YELLOW}Note: Planning and applying each module in dependency order${NC}"
+read -p "Do you want to proceed with deployment? (yes/no): " confirm
 if [ "$confirm" != "yes" ]; then
     echo "Deployment cancelled"
     exit 0
 fi
 
-terragrunt run-all apply
+# Deploy modules in order (plan + apply for each module sequentially)
+for module in "${MODULES[@]}"; do
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  Deploying ${module}${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    cd "${TERRAGRUNT_DIR}/${module}"
+
+    # Plan first
+    echo -e "${YELLOW}→ Planning ${module}${NC}"
+    terragrunt plan
+
+    # Then apply
+    echo ""
+    echo -e "${YELLOW}→ Applying ${module}${NC}"
+    terragrunt apply -auto-approve
+
+    echo -e "${GREEN}✓${NC} ${module} deployed successfully"
+done
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -72,13 +100,11 @@ echo ""
 
 # Display outputs
 echo "Control Plane IP:"
-cd 03-control-plane && terragrunt output public_ip
-cd ..
+cd "${TERRAGRUNT_DIR}/03-control-plane" && terragrunt output public_ip
 
 echo ""
 echo "Worker Node IP:"
-cd 04-worker-nodes && terragrunt output public_ip
-cd ..
+cd "${TERRAGRUNT_DIR}/04-worker-nodes" && terragrunt output public_ip
 
 echo ""
 echo -e "${BLUE}Next steps:${NC}"

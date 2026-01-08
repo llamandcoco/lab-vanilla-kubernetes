@@ -25,6 +25,6 @@ locals {
   # Using 'main' for latest, or specify a commit SHA for reproducibility
   networking_stack_ref = "main"
   ec2_ref              = "main"
-  security_group_ref   = "main"
+  security_group_ref   = "175504bb841e131b7442c4194678de82ee52aa45"
   key_pair_ref         = "main"
 }

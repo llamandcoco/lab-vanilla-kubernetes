@@ -36,7 +36,10 @@ dependency "security_groups" {
   config_path = "../02-security-groups"
 
   mock_outputs = {
-    control_plane_sg_id = "sg-12345678"
+    security_group_ids = {
+      control = "sg-12345678"
+      worker  = "sg-87654321"
+    }
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
@@ -51,7 +54,7 @@ inputs = {
   subnet_id = dependency.networking.outputs.public_subnet_ids[0]
 
   vpc_security_group_ids = [
-    dependency.security_groups.outputs.control_plane_sg_id
+    dependency.security_groups.outputs.security_group_ids["control"]
   ]
 
   associate_public_ip_address = true

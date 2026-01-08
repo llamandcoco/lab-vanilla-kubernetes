@@ -27,4 +27,7 @@ locals {
   ec2_ref              = "main"
   security_group_ref   = "175504bb841e131b7442c4194678de82ee52aa45"
   key_pair_ref         = "main"
+
+  # AMI IDs (centralized)
+  ubuntu_2204_ami_id = "ami-02502825b39f7c669" # Ubuntu Server Pro 22.04 LTS (ca-central-1)
 }

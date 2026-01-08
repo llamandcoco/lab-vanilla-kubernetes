@@ -47,7 +47,7 @@ dependency "security_groups" {
 inputs = {
   # Instance configuration
   instance_name = "k8s-control-plane-01"
-  ami_id        = "ami-02502825b39f7c669" # Ubuntu Server Pro 22.04 LTS (ca-central-1)
+  ami_id        = include.env.locals.ubuntu_2204_ami_id
   instance_type = "t3.medium"             # 2 vCPU, 4GB RAM (minimum for control plane)
 
   # Network configuration

@@ -1,6 +1,6 @@
 # Vanilla Kubernetes on AWS
 
-> Production-grade Kubernetes cluster deployment using Infrastructure as Code (Terragrunt + Terraform) and automated configuration management (Ansible).
+> Learning-oriented, production-inspired Kubernetes cluster deployment using Infrastructure as Code (Terragrunt + Terraform) and automated configuration management (Ansible).
 
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.31.4-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)

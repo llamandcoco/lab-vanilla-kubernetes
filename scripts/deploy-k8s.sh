@@ -96,8 +96,9 @@ echo -e "${GREEN}  Kubernetes cluster deployed successfully!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Get control plane IP
+# Get control plane IP and SSH user from inventory
 CONTROL_PLANE_IP=$(grep -m1 "ansible_host:" "${INVENTORY_FILE}" | awk '{print $2}')
+SSH_USER=$(grep -m1 "ansible_user:" "${INVENTORY_FILE}" | sed 's/.*ansible_user:[[:space:]]*\([^[:space:]]*\).*/\1/')
 
 if [ -z "${CONTROL_PLANE_IP}" ]; then
     echo "Error: could not read control plane IP from ${INVENTORY_FILE}"
@@ -105,16 +106,22 @@ if [ -z "${CONTROL_PLANE_IP}" ]; then
     exit 1
 fi
 
+if [ -z "${SSH_USER}" ]; then
+    echo "Error: could not read ansible_user from ${INVENTORY_FILE}"
+    echo "Ensure generate-inventory.sh succeeded and inventory contains ansible_user."
+    exit 1
+fi
+
 echo -e "${BLUE}Access your cluster:${NC}"
 echo ""
 echo "  1. SSH to control plane:"
-echo "     ssh -i ~/.ssh/k8s-lab-key ubuntu@${CONTROL_PLANE_IP}"
+echo "     ssh -i ~/.ssh/k8s-lab-key ${SSH_USER}@${CONTROL_PLANE_IP}"
 echo ""
 echo "  2. Run kubectl commands:"
 echo "     kubectl get nodes"
 echo "     kubectl get pods -A"
 echo ""
 echo "  3. Copy kubeconfig to local machine (optional):"
-echo "     scp -i ~/.ssh/k8s-lab-key ubuntu@${CONTROL_PLANE_IP}:~/.kube/config ~/.kube/k8s-lab-config"
+echo "     scp -i ~/.ssh/k8s-lab-key ${SSH_USER}@${CONTROL_PLANE_IP}:~/.kube/config ~/.kube/k8s-lab-config"
 echo "     export KUBECONFIG=~/.kube/k8s-lab-config"
 echo ""

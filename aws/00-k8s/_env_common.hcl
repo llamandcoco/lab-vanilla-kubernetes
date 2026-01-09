@@ -29,5 +29,8 @@ locals {
   key_pair_ref         = "main"
 
   # AMI IDs (centralized)
+  # NOTE: AMI IDs are region-specific and may be deprecated over time.
+  #       Verify and update this value for your target region before deployment
+  #       (see docs/deployment.md for instructions on fetching the latest AMI).
   ubuntu_2204_ami_id = "ami-02502825b39f7c669" # Ubuntu Server Pro 22.04 LTS (ca-central-1)
 }

@@ -53,6 +53,19 @@ echo -e "${YELLOW}Generating Ansible inventory...${NC}"
 ./scripts/generate-inventory.sh
 
 echo ""
+echo -e "${YELLOW}Adding SSH host keys to known_hosts...${NC}"
+HOSTS=$(awk '/ansible_host:/{print $2}' "${INVENTORY_FILE}" | xargs)
+if [ -z "${HOSTS}" ]; then
+    echo "Error: no ansible_host entries found in ${INVENTORY_FILE}"
+    exit 1
+fi
+mkdir -p ~/.ssh
+if ! ssh-keyscan -H ${HOSTS} >> ~/.ssh/known_hosts 2>/dev/null; then
+    echo "Error: ssh-keyscan failed for hosts: ${HOSTS}"
+    exit 1
+fi
+
+echo ""
 echo -e "${YELLOW}Testing connectivity...${NC}"
 ansible -i "${INVENTORY_FILE}" all -m ping
 

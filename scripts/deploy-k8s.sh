@@ -33,7 +33,8 @@ fi
 
 if [ ! -f ~/.ssh/k8s-lab-key.pem ]; then
     echo "Error: SSH key not found at ~/.ssh/k8s-lab-key.pem"
-    echo "Create it first with the instructions in docs/deployment.md"
+    echo "Run infra bootstrap first (generates the key): ./scripts/deploy-infra.sh"
+    echo "Or apply the key module directly: (cd aws/00-k8s/00-ssh-key && terragrunt apply)"
     exit 1
 fi
 

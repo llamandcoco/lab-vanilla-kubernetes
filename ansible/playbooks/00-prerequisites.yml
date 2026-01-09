@@ -1,0 +1,39 @@
+---
+- name: Pre-flight checks for Kubernetes nodes
+  hosts: all
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: Verify connectivity
+      ping:
+
+    - name: Check minimum memory requirements
+      assert:
+        that:
+          - ansible_memtotal_mb >= 2800
+        fail_msg: "Minimum requirement: 3GB RAM. Current: {{ ansible_memtotal_mb }}MB"
+        success_msg: "Memory check passed: {{ ansible_memtotal_mb }}MB"
+
+    - name: Check minimum CPU requirements
+      assert:
+        that:
+          - ansible_processor_vcpus >= 2
+        fail_msg: "Minimum requirement: 2 CPUs. Current: {{ ansible_processor_vcpus }}"
+        success_msg: "CPU check passed: {{ ansible_processor_vcpus }} vCPUs"
+
+    - name: Check OS version
+      assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_major_version in ["20", "22", "24"]
+        fail_msg: "This playbook requires Ubuntu 20.04, 22.04, or 24.04. Current: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        success_msg: "OS check passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+    - name: Display node information
+      debug:
+        msg:
+          - "Hostname: {{ ansible_hostname }}"
+          - "IP Address: {{ ansible_default_ipv4.address }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Memory: {{ ansible_memtotal_mb }}MB"
+          - "CPUs: {{ ansible_processor_vcpus }}"

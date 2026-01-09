@@ -1,0 +1,83 @@
+---
+# Install and configure containerd container runtime
+
+- name: Detect system architecture
+  set_fact:
+    sys_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Display detected architecture
+  debug:
+    msg: "Detected architecture: {{ ansible_architecture }} -> Using {{ sys_arch }} binaries"
+
+- name: Download containerd
+  get_url:
+    url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ sys_arch }}.tar.gz"
+    dest: /tmp/containerd.tar.gz
+    mode: '0644'
+
+- name: Extract containerd to /usr/local
+  unarchive:
+    src: /tmp/containerd.tar.gz
+    dest: /usr/local
+    remote_src: yes
+    creates: /usr/local/bin/containerd
+
+- name: Download containerd systemd service file
+  get_url:
+    url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+    dest: /etc/systemd/system/containerd.service
+    mode: '0644'
+
+- name: Create containerd config directory
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+- name: Generate default containerd config
+  shell: containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+
+- name: Configure containerd to use systemd cgroup driver
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+
+- name: Start and enable containerd
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Download runc
+  get_url:
+    url: "https://github.com/opencontainers/runc/releases/download/v{{ runc_version }}/runc.{{ sys_arch }}"
+    dest: /usr/local/sbin/runc
+    mode: '0755'
+
+- name: Create CNI directory
+  file:
+    path: /opt/cni/bin
+    state: directory
+    mode: '0755'
+
+- name: Download CNI plugins
+  get_url:
+    url: "https://github.com/containernetworking/plugins/releases/download/v{{ cni_plugins_version }}/cni-plugins-linux-{{ sys_arch }}-v{{ cni_plugins_version }}.tgz"
+    dest: /tmp/cni-plugins.tgz
+    mode: '0644'
+
+- name: Extract CNI plugins
+  unarchive:
+    src: /tmp/cni-plugins.tgz
+    dest: /opt/cni/bin
+    remote_src: yes
+    creates: /opt/cni/bin/bridge
+
+- name: Verify containerd is running
+  systemd:
+    name: containerd
+    state: started

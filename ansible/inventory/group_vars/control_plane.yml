@@ -1,0 +1,6 @@
+---
+# Variables specific to control plane nodes
+
+# Control plane endpoint (will be set to the control plane's private IP)
+# This can be overridden for HA setups with a load balancer
+control_plane_endpoint: "{{ hostvars[groups['control_plane'][0]]['ansible_default_ipv4']['address'] | default('') }}"

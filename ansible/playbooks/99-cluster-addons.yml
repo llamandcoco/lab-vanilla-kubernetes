@@ -1,0 +1,87 @@
+---
+- name: Install Kubernetes cluster addons
+  hosts: control_plane
+  become: yes
+  become_user: ubuntu
+  gather_facts: yes
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  tasks:
+    - name: Verify all nodes are ready (wait for joins/CNI)
+      command: kubectl get nodes --no-headers
+      register: nodes_check
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: "'NotReady' not in nodes_check.stdout"
+
+    - name: Install metrics-server
+      command: |
+        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      register: metrics_server_result
+      changed_when: "'created' in metrics_server_result.stdout or 'configured' in metrics_server_result.stdout"
+
+    - name: Patch metrics-server for insecure TLS (lab environment only)
+      command: |
+        kubectl patch deployment metrics-server -n kube-system --type='json' \
+        -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+      register: patch_result
+      changed_when: patch_result.rc == 0
+      ignore_errors: yes
+
+    - name: Wait for metrics-server to be ready
+      shell: |
+        i=1
+        while [ $i -le 36 ]; do
+          if kubectl get pods -n kube-system -l k8s-app=metrics-server -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
+            echo "Metrics server is ready"
+            exit 0
+          fi
+          echo "Waiting for metrics-server... attempt $i/36"
+          sleep 5
+          i=$((i + 1))
+        done
+        exit 1
+      args:
+        executable: /bin/bash
+      register: metrics_ready
+      changed_when: false
+
+    - name: Install nginx-ingress controller
+      command: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ ingress_nginx_version }}/deploy/static/provider/cloud/deploy.yaml
+      register: ingress_result
+      changed_when: "'created' in ingress_result.stdout or 'configured' in ingress_result.stdout"
+
+    - name: Wait for ingress-nginx to be ready
+      shell: |
+        i=1
+        while [ $i -le 60 ]; do
+          if kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
+            echo "Ingress controller is ready"
+            exit 0
+          fi
+          echo "Waiting for ingress-nginx... attempt $i/60"
+          sleep 5
+          i=$((i + 1))
+        done
+        exit 1
+      args:
+        executable: /bin/bash
+      register: ingress_ready
+      changed_when: false
+
+    - name: Display cluster information
+      command: "{{ item }}"
+      loop:
+        - kubectl get nodes -o wide
+        - kubectl get pods -A
+        - kubectl get svc -A
+      register: cluster_info
+
+    - name: Show cluster status
+      debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ cluster_info.results }}"
+      loop_control:
+        label: "{{ item.cmd }}"

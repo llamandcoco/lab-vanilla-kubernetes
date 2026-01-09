@@ -1,0 +1,9 @@
+---
+- name: Common setup for all Kubernetes nodes
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+    - container_runtime
+    - kubernetes_packages

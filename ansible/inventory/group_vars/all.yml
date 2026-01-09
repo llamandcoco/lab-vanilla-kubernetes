@@ -1,0 +1,30 @@
+---
+# Global variables for all Kubernetes nodes
+
+# Kubernetes version
+kubernetes_version: "1.31.4"
+kubernetes_version_short: "1.31"
+
+# Container runtime
+containerd_version: "1.7.13"
+runc_version: "1.1.12"
+cni_plugins_version: "1.4.0"
+
+# Network CIDR for pods
+pod_network_cidr: "192.168.0.0/16"
+
+# CNI plugin
+cni_plugin: "calico"
+calico_version: "v3.27.0"
+
+# Cluster configuration
+cluster_name: "vanilla-k8s-lab"
+
+# System settings
+swap_disabled: true
+
+# Metrics server
+metrics_server_version: "latest"
+
+# Ingress controller
+ingress_nginx_version: "v1.10.0"

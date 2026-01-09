@@ -29,7 +29,7 @@ A hands-on implementation of Kubernetes cluster deployment on AWS, demonstrating
 - 🌐 **Calico CNI**: Network policy enforcement and pod networking
 - 📊 **Metrics Server**: Resource usage monitoring
 - 🚪 **NGINX Ingress**: HTTP/HTTPS routing to services
-- 🔧 **POSIX-compatible Scripts**: Cross-platform shell compatibility
+- 🔧 **Bash Automation Scripts**: Automated deployment and management
 
 ### Development Workflow
 - 💻 **Local Testing**: Multipass VMs for AWS-identical playbook testing
@@ -197,7 +197,7 @@ This repository demonstrates practical skills in:
 - AWS networking (VPC, subnets, security groups)
 - Container networking with Calico CNI
 - Sequential deployment with dependency management
-- Cross-platform shell scripting (POSIX compatibility)
+- Shell scripting with bash for automation
 - Automated SSH key management with Terraform TLS provider
 - Local development environments for cost-effective testing
 

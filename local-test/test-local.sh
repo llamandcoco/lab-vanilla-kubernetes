@@ -416,7 +416,7 @@ fix_network() {
     if [ -f "${SCRIPT_DIR}/reset-vm-network.sh" ]; then
         "${SCRIPT_DIR}/reset-vm-network.sh"
     else
-        log_error "reset-vm-network.sh not found"
+        echo -e "${RED}Error: reset-vm-network.sh not found${NC}"
         exit 1
     fi
 

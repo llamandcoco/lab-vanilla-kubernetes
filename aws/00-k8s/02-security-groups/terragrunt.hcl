@@ -48,6 +48,8 @@ inputs = {
       })
       ingress_rules = [
         {
+          # SSH open for lab convenience - allows direct access from anywhere.
+          # Production: Restrict to specific IPs, use bastion host, or AWS Systems Manager.
           description = "SSH"
           from_port   = 22
           to_port     = 22
@@ -55,6 +57,9 @@ inputs = {
           cidr_blocks = ["0.0.0.0/0"]
         },
         {
+          # Kubernetes API open for kubectl access from anywhere.
+          # This is intentional for lab environment convenience.
+          # Production: Restrict to specific IP ranges or use a VPN.
           description = "Kubernetes API"
           from_port   = 6443
           to_port     = 6443
@@ -110,6 +115,8 @@ inputs = {
       })
       ingress_rules = [
         {
+          # SSH open for lab convenience - allows direct access from anywhere.
+          # Production: Restrict to specific IPs, use bastion host, or AWS Systems Manager.
           description = "SSH"
           from_port   = 22
           to_port     = 22
@@ -124,6 +131,9 @@ inputs = {
           source_sg_key = "control"
         },
         {
+          # NodePort open for lab convenience - allows testing NodePort services directly.
+          # This is intentional for learning about different Kubernetes service types.
+          # Production: Use Ingress Controller or LoadBalancer, restrict NodePort access.
           description = "NodePort"
           from_port   = 30000
           to_port     = 32767

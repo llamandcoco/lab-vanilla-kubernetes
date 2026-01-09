@@ -75,6 +75,37 @@ A hands-on implementation of Kubernetes cluster deployment on AWS, demonstrating
 > **Why Public Subnets?**
 > This is a learning/lab environment designed for quick setup and easy troubleshooting. Public subnets allow direct SSH access and kubectl connectivity without additional bastion hosts or VPN setup. Production environments should use private subnets with proper bastion/NAT configuration.
 
+## 🔒 Security Model
+
+**This is a lab environment optimized for learning and experimentation.**
+
+The security configuration intentionally favors ease of use over production-grade security:
+
+**Intentionally Permissive Settings (for lab convenience):**
+- SSH (port 22) accessible from anywhere (`0.0.0.0/0`) - enables direct access without bastion hosts
+- Kubernetes API (port 6443) accessible from anywhere - allows kubectl from any location
+- NodePort range (30000-32767) open to internet - facilitates learning about different service types
+- Public subnets with direct internet access - simplifies networking without NAT gateways
+
+**What IS secured:**
+- Inter-node communication uses security group references (not open CIDR blocks)
+- TLS certificates for Kubernetes API authentication
+- RBAC policies for authorization
+- Container network isolation via Calico CNI
+
+**For Production Environments:**
+When deploying Kubernetes in production, implement these additional hardening measures:
+- Restrict SSH and API access to specific IP ranges or VPN only
+- Use private subnets with NAT Gateway for worker nodes
+- Deploy bastion hosts or AWS Systems Manager Session Manager for node access
+- Expose services via Ingress Controller or LoadBalancer (not NodePort)
+- Enable VPC Flow Logs and CloudWatch monitoring
+- Implement pod security standards and network policies
+- Use AWS KMS for etcd encryption
+
+> [!WARNING]
+> **Not for Production Use**: The default configuration prioritizes learning and accessibility. Do not use these settings for production workloads without implementing proper security hardening.
+
 ## 🚀 Quick Start
 
 ### Prerequisites

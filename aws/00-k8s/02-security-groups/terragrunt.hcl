@@ -55,8 +55,10 @@ inputs = {
           cidr_blocks = ["10.100.0.0/16"]
         },
         {
-          # Kubernetes API kept open to allow kubectl access from anywhere.
-          # In production, restrict this to specific IP ranges or use a VPN.
+          # Kubernetes API accessible from anywhere for kubectl access.
+          # SECURITY WARNING: This exposes the API server to the internet.
+          # For production: Restrict cidr_blocks below to specific IP ranges or use a VPN.
+          # For this lab: Ensure strong authentication (RBAC, certificates) is in place.
           description = "Kubernetes API"
           from_port   = 6443
           to_port     = 6443
@@ -128,7 +130,8 @@ inputs = {
         {
           # NodePort services restricted to VPC for security.
           # To expose services externally, use an Ingress Controller or LoadBalancer.
-          # If direct NodePort access is needed, update this CIDR to your specific IP range.
+          # If direct NodePort access is needed, update the cidr_blocks parameter below
+          # to your specific IP range instead of the VPC CIDR.
           description = "NodePort from VPC only"
           from_port   = 30000
           to_port     = 32767

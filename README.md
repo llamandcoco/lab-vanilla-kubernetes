@@ -86,7 +86,7 @@ This lab implements security best practices while maintaining usability for lear
 - Inter-node communication uses security group references (not open CIDR blocks)
 
 **Access Patterns:**
-- To SSH into nodes: Deploy a bastion host in the VPC or temporarily add your IP to the security group
+- To SSH into nodes: Deploy a bastion host in the VPC or use AWS Systems Manager Session Manager for secure access
 - To expose services externally: Use the NGINX Ingress Controller or Kubernetes LoadBalancer services
 - Direct NodePort access is not recommended and is disabled by default
 

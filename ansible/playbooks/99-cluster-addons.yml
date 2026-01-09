@@ -27,7 +27,7 @@
         -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
       register: patch_result
       changed_when: patch_result.rc == 0
-      failed_when: false
+      ignore_errors: yes
 
     - name: Wait for metrics-server to be ready
       shell: |

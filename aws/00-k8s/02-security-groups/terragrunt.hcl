@@ -48,13 +48,15 @@ inputs = {
       })
       ingress_rules = [
         {
-          description = "SSH"
+          description = "SSH from VPC only"
           from_port   = 22
           to_port     = 22
           protocol    = "tcp"
-          cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks = ["10.100.0.0/16"]
         },
         {
+          # Kubernetes API kept open to allow kubectl access from anywhere.
+          # In production, restrict this to specific IP ranges or use a VPN.
           description = "Kubernetes API"
           from_port   = 6443
           to_port     = 6443
@@ -110,11 +112,11 @@ inputs = {
       })
       ingress_rules = [
         {
-          description = "SSH"
+          description = "SSH from VPC only"
           from_port   = 22
           to_port     = 22
           protocol    = "tcp"
-          cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks = ["10.100.0.0/16"]
         },
         {
           description   = "kubelet from control"
@@ -124,11 +126,14 @@ inputs = {
           source_sg_key = "control"
         },
         {
-          description = "NodePort"
+          # NodePort services restricted to VPC for security.
+          # To expose services externally, use an Ingress Controller or LoadBalancer.
+          # If direct NodePort access is needed, update this CIDR to your specific IP range.
+          description = "NodePort from VPC only"
           from_port   = 30000
           to_port     = 32767
           protocol    = "tcp"
-          cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks = ["10.100.0.0/16"]
         },
         {
           description = "worker self"

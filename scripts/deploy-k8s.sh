@@ -96,7 +96,13 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 
 # Get control plane IP
-CONTROL_PLANE_IP=$(grep "ansible_host:" inventory/hosts.yml | head -1 | awk '{print $2}')
+CONTROL_PLANE_IP=$(grep -m1 "ansible_host:" "${INVENTORY_FILE}" | awk '{print $2}')
+
+if [ -z "${CONTROL_PLANE_IP}" ]; then
+    echo "Error: could not read control plane IP from ${INVENTORY_FILE}"
+    echo "Ensure generate-inventory.sh succeeded and Terragrunt outputs are available."
+    exit 1
+fi
 
 echo -e "${BLUE}Access your cluster:${NC}"
 echo ""

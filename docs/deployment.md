@@ -57,28 +57,23 @@ pip3 install ansible
 
 ## SSH Key Setup
 
-### 1. Generate SSH Key Pair
+> If you run `aws/00-k8s/00-ssh-key` (Terragrunt), keys are generated and saved locally as `~/.ssh/k8s-lab-key.pem` and `~/.ssh/k8s-lab-key.pub`, and uploaded to AWS automatically. You can skip manual key creation.
+
+### Manual key creation (only if you are NOT running 00-ssh-key)
 
 ```bash
-# Generate a new RSA key pair
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/k8s-lab-key -N ""
 
-# Set appropriate permissions
-chmod 600 ~/.ssh/k8s-lab-key
+# Rename private key to .pem to match the stack conventions
+mv ~/.ssh/k8s-lab-key ~/.ssh/k8s-lab-key.pem
+
+chmod 600 ~/.ssh/k8s-lab-key.pem
 chmod 644 ~/.ssh/k8s-lab-key.pub
-```
 
-### 2. Import Key to AWS
-
-```bash
-# Import the public key to AWS
 aws ec2 import-key-pair \
-  --key-name k8s-lab-key \
-  --public-key-material fileb://~/.ssh/k8s-lab-key.pub \
-  --region ca-central-1
-
-# Verify the key was imported
-aws ec2 describe-key-pairs --key-names k8s-lab-key --region ca-central-1
+   --key-name k8s-lab-key \
+   --public-key-material fileb://~/.ssh/k8s-lab-key.pub \
+   --region ca-central-1
 ```
 
 ---

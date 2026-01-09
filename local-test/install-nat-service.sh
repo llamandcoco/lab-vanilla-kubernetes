@@ -3,7 +3,8 @@
 
 set -e
 
-PLIST_FILE="com.multipass.nat.plist"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLIST_FILE="${SCRIPT_DIR}/com.multipass.nat.plist"
 INSTALL_PATH="/Library/LaunchDaemons/com.multipass.nat.plist"
 
 echo "Installing Multipass NAT service..."

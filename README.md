@@ -75,6 +75,28 @@ A hands-on implementation of Kubernetes cluster deployment on AWS, demonstrating
 > **Why Public Subnets?**
 > This is a learning/lab environment designed for quick setup and easy troubleshooting. Public subnets allow direct SSH access and kubectl connectivity without additional bastion hosts or VPN setup. Production environments should use private subnets with proper bastion/NAT configuration.
 
+## 🔒 Security Model
+
+This lab implements security best practices while maintaining usability for learning:
+
+**Network Security:**
+- SSH (port 22) access is restricted to VPC CIDR only (10.100.0.0/16) for both control plane and worker nodes
+- NodePort range (30000-32767) is restricted to VPC CIDR to prevent exposure of services to the internet
+- Kubernetes API (port 6443) remains accessible from anywhere to allow kubectl access
+- Inter-node communication uses security group references (not open CIDR blocks)
+
+**Access Patterns:**
+- To SSH into nodes: Deploy a bastion host in the VPC or temporarily add your IP to the security group
+- To expose services externally: Use the NGINX Ingress Controller or Kubernetes LoadBalancer services
+- Direct NodePort access is not recommended and is disabled by default
+
+**Production Hardening:**
+For production deployments, additionally restrict:
+- Kubernetes API access to specific IP ranges or use a VPN
+- Use private subnets with NAT Gateway for worker nodes
+- Enable VPC Flow Logs and CloudWatch monitoring
+- Implement pod security policies and network policies
+
 ## 🚀 Quick Start
 
 ### Prerequisites

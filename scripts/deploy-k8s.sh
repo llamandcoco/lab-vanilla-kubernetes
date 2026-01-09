@@ -98,7 +98,7 @@ echo ""
 
 # Get control plane IP and SSH user from inventory
 CONTROL_PLANE_IP=$(grep -m1 "ansible_host:" "${INVENTORY_FILE}" | awk '{print $2}')
-SSH_USER=$(grep -m1 "ansible_user:" "${INVENTORY_FILE}" | awk '{print $2}')
+SSH_USER=$(grep -m1 "ansible_user:" "${INVENTORY_FILE}" | sed 's/.*ansible_user:[[:space:]]*\([^[:space:]]*\).*/\1/')
 
 if [ -z "${CONTROL_PLANE_IP}" ]; then
     echo "Error: could not read control plane IP from ${INVENTORY_FILE}"

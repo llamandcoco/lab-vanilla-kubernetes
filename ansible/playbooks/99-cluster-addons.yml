@@ -45,8 +45,6 @@
       args:
         executable: /bin/bash
       register: metrics_ready
-      retries: 1
-      delay: 0
       changed_when: false
 
     - name: Install nginx-ingress controller
@@ -71,8 +69,6 @@
       args:
         executable: /bin/bash
       register: ingress_ready
-      retries: 1
-      delay: 0
       changed_when: false
 
     - name: Display cluster information

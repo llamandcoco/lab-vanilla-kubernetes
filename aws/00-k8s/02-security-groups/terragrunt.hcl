@@ -28,7 +28,7 @@ dependency "networking" {
 }
 
 terraform {
-  source = "github.com/llamandcoco/infra-modules//terraform/security_groups?ref=${include.env.locals.security_group_ref}"
+  source = "github.com/llamandcoco/infra-modules//terraform/security-groups?ref=${include.env.locals.security_group_ref}"
 }
 
 locals {
